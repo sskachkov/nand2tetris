@@ -1,0 +1,14 @@
+package builtInChips;
+
+import Hack.Gates.BuiltInGate;
+
+/**
+ * A bitwise 1-bit And gate.
+ */
+public class ConstantZero extends BuiltInGate {
+
+    protected void reCompute() {
+        outputPins[0].set((short) 0);
+    }
+
+}

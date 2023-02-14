@@ -1,0 +1,169 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/05/CPU.hdl
+
+/**
+ * The Hack CPU (Central Processing unit), consisting of an ALU,
+ * two registers named A and D, and a program counter named PC.
+ * The CPU is designed to fetch and execute instructions written in 
+ * the Hack machine language. In particular, functions as follows:
+ * Executes the inputted instruction according to the Hack machine 
+ * language specification. The D and A in the language specification
+ * refer to CPU-resident registers, while M refers to the external
+ * memory location addressed by A, i.e. to Memory[A]. The inM input 
+ * holds the value of this location. If the current instruction needs 
+ * to write a value to M, the value is placed in outM, the address 
+ * of the target location is placed in the addressM output, and the 
+ * writeM control bit is asserted. (When writeM==0, any value may 
+ * appear in outM). The outM and writeM outputs are combinational: 
+ * they are affected instantaneously by the execution of the current 
+ * instruction. The addressM and pc outputs are clocked: although they 
+ * are affected by the execution of the current instruction, they commit 
+ * to their new values only in the next time step. If reset==1 then the 
+ * CPU jumps to address 0 (i.e. pc is set to 0 in next time step) rather 
+ * than to the address resulting from executing the current instruction. 
+----------------------
+ALU table for the reference:
+zx| nx| zy| ny| f | no|out 
+--------------------------
+1 | 0 | 1 | 0 | 1 | 0 | 0
+1 | 1 | 1 | 1 | 1 | 1 | 1
+1 | 1 | 1 | 0 | 1 | 0 | -1
+0 | 0 | 1 | 1 | 0 | 0 | x
+1 | 1 | 0 | 0 | 0 | 0 | y
+0 | 0 | 1 | 1 | 0 | 1 | !x
+1 | 1 | 0 | 0 | 0 | 1 | !y
+0 | 0 | 1 | 1 | 1 | 1 | -x
+1 | 1 | 0 | 0 | 1 | 1 | -y 
+0 | 1 | 1 | 1 | 1 | 1 | x+1 
+1 | 1 | 0 | 1 | 1 | 1 | y+1
+0 | 0 | 1 | 1 | 1 | 0 | x-1
+1 | 1 | 0 | 0 | 1 | 0 | y-1
+0 | 0 | 0 | 0 | 1 | 0 | x+y
+0 | 1 | 0 | 0 | 1 | 1 | x-y
+0 | 0 | 0 | 1 | 1 | 1 | y-x
+0 | 0 | 0 | 0 | 0 | 0 | x&y
+0 | 1 | 0 | 1 | 0 | 1 | x|y
+command format:
+1xxaccccccdddjjj
+----------------------
+a	c5	c4	c3	c2	c1	c0	ALU Output: f(x,y)	                                    Mnemonic
+0	1	0	1	0	1	0	Outputs 0; ignores all operands	                        0
+0	1	1	1	1	1	1	Outputs 1; ignores all operands	                        1
+0	1	1	1	0	1	0	Outputs -1; ignores all operands	                    -1
+0	0	0	1	1	0	0	Outputs D; ignores A and M	                            D
+0	1	1	0	0	0	0	Outputs A; ignores D and M	                            A
+1	1	1	0	0	0	0	Outputs M; ignores D and A	                            M
+0	0	0	1	1	0	1	Outputs bitwise negation of D; ignores A and M	        !D
+0	1	1	0	0	0	1	Outputs bitwise negation of A; ignores D and M	        !A
+1	1	1	0	0	0	1	Outputs bitwise negation of M; ignores D and A	        !M
+0	0	0	1	1	1	1	Outputs 2's complement negative of D; ignores A and M	-D
+0	1	1	0	0	1	1	Outputs 2's complement negative of A; ignores D and M	-A
+1	1	1	0	0	1	1	Outputs 2's complement negative of M; ignores D and A	-M
+0	0	1	1	1	1	1	Outputs D + 1 (increments D); ignores A and M	        D+1
+0	1	1	0	1	1	1	Outputs A + 1 (increments A); ignores D and M	        A+1
+1	1	1	0	1	1	1	Outputs M + 1 (increments M); ignores D and A	        M+1
+0	0	0	1	1	1	0	Outputs D - 1 (decrements D); ignores A and M	        D-1
+0	1	1	0	0	1	0	Outputs A - 1 (decrements A); ignores D and M	        A-1
+1	1	1	0	0	1	0	Returns M-1 (decrements M); ignores D and A	            M-1
+0	0	0	0	0	1	0	Outputs D + A; ignores M	                            D+A
+1	0	0	0	0	1	0	Outputs D + M; ignores A	                            D+M
+0	0	1	0	0	1	1	Outputs D - A; ignores M	                            D-A
+1	0	1	0	0	1	1	Outputs D - M; ignores A	                            D-M
+0	0	0	0	1	1	1	Outputs A - D; ignores M	                            A-D
+1	0	0	0	1	1	1	Outputs M - D; ignores A	                            M-D
+0	0	0	0	0	0	0	Outputs bitwise logical And of D and A; ignores M	    D&A
+1	0	0	0	0	0	0	Outputs bitwise logical And of D and M; ignores A	    D&M
+0	0	1	0	1	0	1	Outputs bitwise logical Or of D and A; ignores M	    D|A
+1	0	1	0	1	0	1	Outputs bitwise logical Or of D and M; ignores A	    D|M
+
+d2	d1	d0	Store ALU output in	Mnemonic
+0	0	0	Output not stored	none
+0	0	1	M	                M
+0	1	0	D	                D
+0	1	1	D and M	            DM
+1	0	0	A	                A
+1	0	1	A and M	            AM
+1	1	0	A and D	            AD
+1	1	1	A and D and M	    ADM
+
+j2	j1	j0	Branch if	                    Mnemonic
+0	0	0	No branch	                    none
+0	0	1	Output greater than 0	        JGT
+0	1	0	Output equals 0	                JEQ
+0	1	1	Output greater than or equal 0	JGE
+1	0	0	Output less than	            JLT
+1	0	1	Output not equal 0	            JNE
+1	1	0	Output less than or equal 0	    JLE
+1	1	1	Unconditional branch	        JMP
+1xxaccccccdddjjj
+0011000000111001
+0011000000111001
+1110001100001000
+1110001100001000
+1110001100000001
+1110011111000010
+
+1110101010000111
+1110001100000111
+
+|17  | 11111|1110011111000010|  0  |   1001|   0   |   21|   19|
+|17  | 11111|1110011111000010|  0  |   1001|   0   |   21|   19|      0 |      0 |
+|17  | 11111|1110011111000010|  0  |   1001|   0   |   21|   19|      0 |      0 |      1 |
+|17  | 11111|1110011111000010|  0  |   1001|   0   |   21|   19|      0 |      0 |      1 |      0 |
+|17  | 11111|1110011111000010|  0  |*******|   0   |   21|   21|
+
+
+|time| inM  |  instruction   |reset| outM  |writeM |addre| pc  | aluZr  | aluNg  |jmpEqChe| jmpEq  |jumping |
+|17  | 11111|1110011111000010|  0  |   1001|   0   |   21|   19|      0 |      0 |      1 |      0 |      0 |
+
+3rd party impl:
+|time| inM  |  instruction   |reset| outM  |writeM |addre| pc  |   zr   |   ng   |  ld1   |  ld2   |  ld3   |
+|17  | 11111|1110011111000010|  0  |      0|   0   |   21|   21|      1 |      0 |      0 |      1 |      0 |
+
+zx = c5, nx- c4, zy - c3, ny - c2, f - c1, no - c0
+ */
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:
+        Or16(a=instruction, out[15]=flagCmdType, out[12]=flagA, out[11]=flagC5, out[10]=flagC4, out[9]=flagC3, out[8]=flagC2, out[7]=flagC1, out[6]=flagC0, out[5]=flagD2, out[4]=flagD1, out[3]=flagD0, out[2]=flagJ2, out[1]=flagJ1, out[0]=flagJ0);
+        Mux16(a=instruction, b=aluOut, sel=flagCmdType, out=regAIn);
+        Not(in=flagCmdType, out=notFlagCmdType);
+        Or(a=flagD2, b=notFlagCmdType, out=regALoad);
+        //A register
+        ARegister(in=regAIn, load=regALoad, out=regAOut, out[0..14]=addressM);
+        //D register
+        And(a=flagD1, b=flagCmdType, out=regDLoad);
+        DRegister(in=aluOut, load=regDLoad, out=regDOut);
+
+        Mux16(a=regAOut, b=inM, sel=flagA, out=muxedAMOut);
+        And(a=flagD0, b=flagCmdType, out=writeM);
+        Not(in=reset, out=notReset);
+
+        And(a=flagJ2, b=flagCmdType, out=jmpLessCheck);
+        And(a=flagJ1, b=flagCmdType, out=jmpEqCheck);
+        And(a=flagJ0, b=flagCmdType, out=jmpGtCheck);
+        Not(in=aluNg, out=notAluNg);
+        Not(in=aluZr, out=notAluZr);
+        And(a=notAluNg, b=notAluZr, out=aluGt);
+        And(a=jmpLessCheck, b=aluNg, out=jmpLess);
+        And(a=jmpEqCheck, b=aluZr, out=jmpEq);
+        And(a=jmpGtCheck, b=aluGt, out=jmpGt);
+
+        Or8Way(in[0]=jmpLess, in[1]=jmpEq, in[2]=jmpGt, out=jumping);
+        PC(in=regAOut, load=jumping, inc=notReset, reset=reset, out[0..14]=pc);
+        ALU(x=regDOut, y=muxedAMOut, zx=flagC5, nx=flagC4, zy=flagC3, ny=flagC2, f=flagC1, no=flagC0, out=aluOut, out=outM, zr=aluZr, ng=aluNg);
+
+}

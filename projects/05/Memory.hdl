@@ -1,0 +1,85 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/05/Memory.hdl
+
+/**
+ * The complete address space of the Hack computer's memory,
+ * including RAM and memory-mapped I/O. 
+ * The chip facilitates read and write operations, as follows:
+ *     Read:  out(t) = Memory[address(t)](t)
+ *     Write: if load(t-1) then Memory[address(t-1)](t) = in(t-1)
+ * In words: the chip always outputs the value stored at the memory 
+ * location specified by address. If load==1, the in value is loaded 
+ * into the memory location specified by address. This value becomes 
+ * available through the out output from the next time step onward.
+ * Address space rules:
+ * Only the upper 16K+8K+1 words of the Memory chip are used. 
+ * Access to address>0x6000 is invalid. Access to any address in 
+ * the range 0x4000-0x5FFF results in accessing the screen memory 
+ * map. Access to address 0x6000 results in accessing the keyboard 
+ * memory map. The behavior in these addresses is described in the 
+ * Screen and Keyboard chip specifications given in the book.
+ mem:
+>>> bin(16383)
+'0b011111111111111'
+screen:
+>>> bin(16384)
+'0b100000000000000'
+kb:
+>>> bin(24576)
+'0b110000000000000'
+mem0:
+>>> bin(8192)
+'0b010000000000000'
+   100000000000000
+   010000000000000
+|  12345 |  1  | 100000000000000 |  12345 |
+
+
+
+000000000000000 - mem0 start
+000000000000000
+000000000000000
+000000000000000
+100000000000000 - screen start
+101111111111111 - screen end
+110000000000000 - kb
+
+ */
+
+CHIP Memory {
+    IN in[16], load, address[15];
+    OUT out[16];
+
+    PARTS:
+    Not(in=address[14], out=fifteenBitInv);
+    Not(in=address[13], out=fourteenBitInv);
+    Not(in=address[12], out=thirteenBitInv);
+
+    Or(a=fifteenBitInv, out=selMem);
+    //And(a=fifteenBitInv, b=fourteenBitInv, out=selMem0);
+    //And(a=fifteenBitInv, b=address[13], out=selMem1);
+
+    And(a=address[14], b=fourteenBitInv, out=selScreen);
+    And(a=address[14], b=address[13], out=selKb);
+
+    //And(a=selMem0, b=load, out=loadMem0);
+    //And(a=selMem1, b=load, out=loadMem1);
+    And(a=selMem, b=load, out=loadMem);
+    And(a=selScreen, b=load, out=screenLoad);
+
+
+    RAM16K(in=in, load=loadMem, address=address[0..13], out=ramOut);
+    //RAM16K(in=in, load=loadMem1, address=address[0..13], out=ramOut1);
+
+    Screen(in=in, load=screenLoad, address=address[0..12], out=screenOut);
+    Keyboard(out=kbOut);
+
+    //Mux16(a=ramOut0, b=ramOut1, sel=selMem1, out=ramOut);
+
+    Mux16(a=ramOut, b=screenOut, sel=selScreen, out=out1);
+
+    Mux16(a=out1, b=kbOut, sel=selKb, out=out);
+}
+    

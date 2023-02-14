@@ -1,0 +1,6 @@
+CHIP ConstantOne {
+    IN  in;
+    OUT out;
+
+    BUILTIN ConstantOne;
+}

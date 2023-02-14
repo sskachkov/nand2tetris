@@ -1,0 +1,12 @@
+/**
+ * Nop2 gate: 
+ * out = 1 if (a == 1 and b == 1)
+ *       0 otherwise
+ */
+
+CHIP Nop2 {
+    IN in;
+    OUT out;
+    PARTS:
+    Nop(in=in,out=out);
+}

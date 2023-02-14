@@ -1,0 +1,6 @@
+CHIP Nop {
+    IN  in;
+    OUT out;
+
+    BUILTIN Nop;
+}

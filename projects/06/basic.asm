@@ -1,0 +1,11 @@
+(LABEL)
+D=1
+@4
+A=D
+@R2
+A=D
+@9
+A=D
+D;JMP
+@LABEL
+A=D
