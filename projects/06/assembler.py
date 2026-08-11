@@ -23,7 +23,10 @@ class Parser:
             rawLines = source.splitlines()
             for rawLine in rawLines:
                 rawLine = rawLine.strip()
-                if len(rawLine) == 0 or rawLine.startswith('//'):
+                commentIndex = rawLine.find('//')
+                if commentIndex != -1:
+                    rawLine = rawLine[:commentIndex].strip()
+                if len(rawLine) == 0:
                     continue
                 self.lines.append(rawLine)
         
@@ -141,9 +144,9 @@ class Parser:
                 return '0110010'
             case 'M-1':
                 return '1110010'
-            case 'D+A':
+            case 'D+A' | 'A+D':
                 return '0000010'
-            case 'D+M':
+            case 'D+M' | 'M+D':
                 return '1000010'
             case 'D-A':
                 return '0010011'
@@ -153,13 +156,13 @@ class Parser:
                 return '0000111'
             case 'M-D':
                 return '1000111'
-            case 'D&A':
+            case 'D&A' | 'A&D':
                 return '0000000'
-            case 'D&M':
+            case 'D&M' | 'M&D':
                 return '1000000'
-            case 'D|A':
+            case 'D|A' | 'A|D':
                 return '0010101'
-            case 'D|M':
+            case 'D|M' | 'M|D':
                 return '1010101'
         raise AssemblerException(f'Unexpected COMP field [{compStr}]', line)
 

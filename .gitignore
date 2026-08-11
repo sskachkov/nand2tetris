@@ -1,1 +1,23 @@
 src
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+
+# nand2tetris GUI simulators store their "last opened file" / window state here --
+# per-machine, not meaningful to share.
+tools/bin/*.dat
+
+# Test/assemble outputs -- 100% reproducible via tools/test-project.sh, not worth
+# tracking or reviewing diffs on.
+*.out
+projects/06/**/*.bin
+
+# Scratch dir created by tools/test-project.sh 06 (reference-assembler comparison)
+projects/06/_reftest/
